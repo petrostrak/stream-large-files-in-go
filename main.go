@@ -3,11 +3,11 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
 	"net"
-	"time"
 )
 
 type FileServer struct {
@@ -31,7 +31,13 @@ func (fs *FileServer) Start() {
 func (fs *FileServer) read(conn net.Conn) {
 	buffer := new(bytes.Buffer)
 	for {
-		n, err := io.CopyN(buffer, conn, 4096)
+		var size int64
+		err := binary.Read(conn, binary.LittleEndian, &size)
+		if err != nil {
+			return
+		}
+
+		n, err := io.CopyN(buffer, conn, size)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -52,6 +58,11 @@ func sendFile(size int) error {
 		return err
 	}
 
+	err = binary.Write(conn, binary.LittleEndian, int64(size))
+	if err != nil {
+		return err
+	}
+
 	n, err := io.CopyN(conn, bytes.NewReader(file), int64(size))
 	if err != nil {
 		return err
@@ -62,7 +73,6 @@ func sendFile(size int) error {
 
 func main() {
 	go func() {
-		time.Sleep(4 * time.Second)
 		err := sendFile(4096)
 		if err != nil {
 			return
