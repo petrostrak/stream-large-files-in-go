@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -28,14 +29,13 @@ func (fs *FileServer) Start() {
 }
 
 func (fs *FileServer) read(conn net.Conn) {
-	buffer := make([]byte, 2048)
+	buffer := new(bytes.Buffer)
 	for {
-		n, err := conn.Read(buffer)
+		n, err := io.CopyN(buffer, conn, 4096)
 		if err != nil {
 			log.Fatal(err)
 		}
-		file := buffer[:n]
-		fmt.Println(file)
+		fmt.Println(buffer.Bytes())
 		fmt.Printf("received %d bytes over the network.\n", n)
 	}
 }
@@ -52,7 +52,7 @@ func sendFile(size int) error {
 		return err
 	}
 
-	n, err := conn.Write(file)
+	n, err := io.CopyN(conn, bytes.NewReader(file), int64(size))
 	if err != nil {
 		return err
 	}
